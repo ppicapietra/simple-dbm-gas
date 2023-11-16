@@ -1,0 +1,54 @@
+{
+    "extends": "eslint:recommended",
+    "env": {
+        "node": true,
+        "es6": true
+      },
+      "parserOptions": {
+        "ecmaVersion": 2022
+      },
+    "rules": {
+        //Severity should be one of the following: 0 = off, 1 = warning, 2 = error
+        // overrides from 'recommended'
+        "comma-dangle": 0,
+        "no-console": ["warn", { "allow": ["error"] }],
+
+        // strict
+        "strict": 0,
+
+        // formatting, spaces, operators
+        "indent": 0,
+        "quotes": 0,
+        "space-after-keywords": 0,
+        "space-before-blocks": 0,
+        "space-before-function-paren": 0,
+        "dot-location": 0,
+        "space-infix-ops": 0,
+        "key-spacing": 0,
+        "operator-linebreak": 0,
+        "no-spaced-func": 0,
+        "comma-spacing": 0,
+        "no-multiple-empty-lines": 0,
+        "camelcase": 0,
+        "no-mixed-spaces-and-tabs": 0,
+        "no-undef": 0,
+
+        // coding style
+        "curly": 0,
+        "wrap-iife": 0,
+        "eqeqeq": 0,
+        "no-use-before-define": 0,
+        "no-unused-vars": 0,
+        "no-unexpected-multiline": 0,
+        "no-multi-str": 0,
+        "no-irregular-whitespace": 0,
+        "no-empty": 0,
+        "no-useless-escape": 0,
+        "no-redeclare": 0,
+
+        // os/git options
+        "no-trailing-spaces": 0,
+        "linebreak-style": 0,
+        "eol-last": 0
+    }
+}
