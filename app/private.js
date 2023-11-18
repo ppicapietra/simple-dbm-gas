@@ -177,6 +177,8 @@ function evaluateFieldsOperation_( cellValue, operator, filterValue ) {
 
   if ( getObjectType_( operator ) === "regexp" ) {
     return operator.test( String( cellValue ) );
+  } else if ( getObjectType_( operator ) === "function" ) {
+    return operator( cellValue, filterValue );
   } else {
     switch ( operator ) {
       case "=":

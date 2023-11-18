@@ -28,7 +28,10 @@ SimpleDBM.config({ logger: SimpleLogger });
 ```javascript
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').select();
 
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('columnName', '=', 'value').select(["colName", "colName2"]);
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').select(["fieldName", "fieldName2"]);
+
+const filterFunction = (cellValue, desiredResult) => {/** do some magic and return true/false */} 
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', filterFunction, 'value').select(["fieldName", "fieldName2"]);
 ```
 
 #### With Join
@@ -36,7 +39,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('columnName', '=', 'v
 ```javascript
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post", "=" ], 'tableAlias').select();
 
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('columnName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
 
 // several criteria conditions to the join
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [[ "id", "id_post" ], [ "author_id", "author_id" ]], 'tableAlias').select();
@@ -70,18 +73,17 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', 'value')
 
 ## Methods
 
-Method Name | Function and Parameters Description | Returned Value | Throws Exceptions
-|---------|---------|---------|---------|
-spreadsheet(spreadsheetId) | Crea una instancia de SimpleDBM para una hoja de cálculo especificada. - spreadsheetId (string): ID de la hoja de cálculo. Obligatorio. | Instancia de SimpleDBM para encadenamiento. | No
-sheet(sheetNameOrIndex, as) | Establece la hoja de cálculo y un prefijo opcional para las operaciones subsiguientes. - sheetNameOrIndex (string/number): Nombre o índice de la hoja. Obligatorio. - as (string): Prefijo opcional para nombres de campo. Por defecto: null. | Instancia de SimpleDBM para encadenamiento. | Sí, si la hoja de cálculo no se encuentra.
-with(fieldName, comparisonOperator, filterValue) | Filtra los datos basándose en un campo y un valor. - fieldName (string): Nombre del campo para filtrar. Obligatorio. - comparisonOperator (string): Operador de comparación, por defecto '='. Opcional. - filterValue (any): Valor para comparar. Obligatorio. | Instancia de SimpleDBM para encadenamiento. | No
-withDefaults(defaultValues) | Establece valores predeterminados para operaciones de inserción y actualización. - defaultValues (object): Objeto con valores predeterminados. Obligatorio. | Instancia de SimpleDBM para encadenamiento. | No
-join(spreadsheetId, sheetNameOrIndex, criterias, as) | Realiza operaciones de unión con otra hoja. - spreadsheetId (string): ID de la hoja de cálculo para unir. Obligatorio. - sheetNameOrIndex (string/number): Nombre o índice de la hoja para unir. Obligatorio. - criterias (array): Criterios para la unión. Obligatorio. - as (string): Alias opcional para los datos unidos. Por defecto: null. | Instancia de SimpleDBM para encadenamiento. | Sí, si los criterios de unión son inválidos o ambiguos.
-select(fields) | Selecciona datos de la hoja de cálculo. - fields (string/array): Campos a seleccionar, "*" para todos. Por defecto: "*". | Objeto con fields y data. | No
-insert(data) | Inserta datos en la hoja de cálculo. - data (array/object): Datos a insertar. Obligatorio. | Instancia de SimpleDBM para encadenamiento. | Sí, si el tipo de datos es inválido.
-update(data) | Actualiza datos en la hoja de cálculo. - data (object): Datos a actualizar. Obligatorio. | Instancia de SimpleDBM para encadenamiento. | Sí, si no se proporcionan filtros o el nombre de la hoja de cálculo.
-delete() | Elimina datos de la hoja de cálculo basándose en filtros. | Instancia de SimpleDBM para encadenamiento. | Sí, si no se proporcionan filtros o el nombre de la hoja de cálculo.
-
+| Method Name | Function and Parameters Description | Returned Value | Throws Exceptions |
+|-------------|-------------------------------------|----------------|-------------------|
+| delete() | Deletes data from the spreadsheet based on filters. | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
+| insert(data) | Inserts data into the spreadsheet. <br> - data (array/object): Data to be inserted. Required. | SimpleDBM instance for chaining. | Yes, if the data type is invalid. |
+| join(spreadsheetId, sheetNameOrIndex, criterias, as) | Performs join operations with another sheet. <br> - spreadsheetId (string): Spreadsheet ID to join. Required. <br> - sheetNameOrIndex (string/number): Name or index of the sheet to join. Required. <br> - criterias (array): Criteria for joining. Required. <br> - as (string): Optional alias for joined data. Default: null. | SimpleDBM instance for chaining. | Yes, if join criteria are invalid or ambiguous. |
+| select(fields) | Selects data from the spreadsheet. <br> - fields (string/array): Fields to select, "*" for all. Default: "*". | Object with fields and data. | No |
+| sheet(sheetNameOrIndex, as) | Sets the spreadsheet and an optional prefix for subsequent operations. <br> - sheetNameOrIndex (string/number): Name or index of the sheet. Required. <br> - as (string): Optional prefix for field names. Default: null. | SimpleDBM instance for chaining. | Yes, if the spreadsheet is not found. |
+| spreadsheet(spreadsheetId) | Creates a SimpleDBM instance for a specified spreadsheet. <br> - spreadsheetId (string): Spreadsheet ID. Required. | SimpleDBM instance for chaining. | No |
+| update(data) | Updates data in the spreadsheet. <br> - data (object): Data to be updated. Required. | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
+| with(fieldName, criteria, value) | Adds filters to the operation. <br> - fieldName: Name of the field to be compared. <br> - criteria: string, regular expression, or function used to evaluate the acceptance condition. <br> - value: (optional) value used for comparison in the evaluation. | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
+| withDefaults(defaultValues) | Sets default values for insert and update operations. <br> - defaultValues (object): Object with default values. Required. | SimpleDBM instance for chaining. | No |
 
 ## Contributions
 
