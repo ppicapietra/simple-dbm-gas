@@ -1,16 +1,21 @@
 class DBM {
 
-	constructor( spreadsheetId, sheetNameOrIndex = null, sheetPrefix = null ) {
+	constructor( spreadsheetId, sheetNameOrIndex = null, sheetAlias = null ) {
 		this.spreadsheetId = spreadsheetId;
 		this.sheetNameOrIndex = sheetNameOrIndex;
-		this.sheetPrefix = sheetPrefix;
+		this.sheetAlias = sheetAlias;
 		this.whereFilters = [];
+		this.orders = [];
 		this.defaults = {};
 		this.idStrategicType = DBM.ID_STRATEGY_TYPES.ID_STRATEGY_SEQUENTIAL;
 	}
 
 	static get ID_STRATEGY_TYPES() {
 		return ID_STRATEGY_TYPES;
+	}
+
+	static get ORDER_TYPES() {
+		return ORDER_TYPES;
 	}
 
 	static spreadsheet( spreadsheetId ) {
@@ -23,7 +28,7 @@ class DBM {
 
 	sheet( sheetNameOrIndex, as = null ) {
 		this.sheetNameOrIndex = sheetNameOrIndex;
-		this.sheetPrefix = as;
+		this.sheetAlias = as;
 		return this;
 	}
 
@@ -55,6 +60,29 @@ class DBM {
 		return this;
 	}
 
+	withOrder( fieldName, orderType = ORDER_TYPES.ASC ) {
+		// Check if fieldName is defined
+		if ( fieldName === undefined || fieldName === null ) {
+			throw new Error( "The 'fieldName' parameter is required and cannot be null or undefined." );
+		}
+		if ( !this.orders ) {
+			this.orders = [];
+		}
+		this.orders.push( { field: fieldName, type: orderType } );
+
+		return this;
+	}
+
+
+	/**
+	 * Adds a join configuration to combine data from another spreadsheet.
+	 * 
+	 * @param {string} spreadsheetId - ID of the spreadsheet to join.
+	 * @param {string|number} sheetNameOrIndex - Name or index of the sheet in the spreadsheet to join.
+	 * @param {Array} criterias - Array of criteria for performing the join. Each criterion is an array that can contain two or three elements: the field name from the main table, optional comparison operator (default '='), and the field name from the table to join.
+	 * @param {string|null} [as=null] - Optional alias to be used as a prefix for field names from the joined spreadsheet.
+	 * @returns {DBM} The DBM instance to allow method chaining.
+	 */
 	join( spreadsheetId, sheetNameOrIndex, criterias, as = null ) {
 		if ( !this.joinsConfig ) {
 			this.joinsConfig = [];
@@ -86,14 +114,13 @@ class DBM {
 			}
 		} );
 
-
 		this.joinsConfig.push( { spreadsheetId, sheetNameOrIndex, criterias, as } );
 		return this; // Allows chaining
 	}
 
 	select( fields = "*" ) {
 		// Fetch main data and fields
-		const mainTable = fetchData_( this.spreadsheetId, this.sheetNameOrIndex, this.sheetPrefix );
+		const mainTable = fetchData_( this.spreadsheetId, this.sheetNameOrIndex, this.sheetAlias );
 
 		// Handle joins
 		if ( this.joinsConfig && this.joinsConfig.length > 0 ) {
@@ -109,16 +136,18 @@ class DBM {
 		}
 
 		// Apply filters to the dataset (WHERE clause)
-		const filteredRows = filterTableData_( mainTable, this.whereFilters );
+		const filteredTable = filterTableData_( mainTable, this.whereFilters );
+
+		// Apply defined orderings
+		orderResults_( filteredTable, this.orders );
 
 		// If a specific select of fields is provided, select only those fields
-		if ( fields === "*" ) {
-			return filteredRows.data
-		} else {
-			const normalizedFieldNames = validateSelectFields_( fields, mainTable.fields );
-			const filteredTableFields = pickFields_( normalizedFieldNames, filteredRows );
-			return filteredTableFields.data;
-		}
+		const paginator = new Paginator();
+		paginator.table = fields === "*" ?
+			filteredTable
+			: pickFields_( validateSelectFields_( fields, mainTable.fields ), filteredTable );
+
+		return paginator;
 	}
 
 	insert( data ) {

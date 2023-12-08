@@ -85,7 +85,7 @@ function validateFieldName_( fieldName, fieldNames ) {
     name === fieldName || name.endsWith( `.${ fieldName }` )
   );
   if ( matchedFields.length !== 1 ) {
-    throw new Error( `Field name is ambiguous or wrong: ${ fieldName }` );
+    throw new Error( `Field name is wrong or ambiguous. Field name: ${ fieldName }. Fields: ${fieldNames.join(', ')}` );
   }
   return matchedFields[ 0 ];
 }
@@ -244,6 +244,30 @@ function pickFields_( fieldsToSelect, table ) {
   } );
 
   return { fields, data: selectedData };
+}
+
+/**
+ * 
+ * @param {Object} table 
+ * @param {Object[]} orders 
+ * @returns {Object}
+ */
+function orderResults_( table, orders ) {
+  if ( !orders || orders.length === 0 ) return table;
+
+  table.data.sort( ( a, b ) => {
+    for ( let order of orders ) {
+      const { field, type } = order;
+      const fieldIndex = table.fields.indexOf( field );
+      if ( fieldIndex === -1 ) continue;
+
+      if ( evaluateFieldsOperation_( a[ fieldIndex ], "<", b[ fieldIndex ] ) ) return type === ORDER_TYPES.ASC ? -1 : 1;
+      if ( evaluateFieldsOperation_( a[ fieldIndex ], ">", b[ fieldIndex ] ) ) return type === ORDER_TYPES.ASC ? 1 : -1;
+    }
+    return 0;
+  } );
+
+  return table;
 }
 
 
