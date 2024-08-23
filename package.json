@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "code.js",
-  "scripts": {},
+  "scripts": {
+    "deploy": "clasp push && clasp version"
+  },
   "author": "ppicapietra",
   "license": "ISC",
   "devDependencies": {
