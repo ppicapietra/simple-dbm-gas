@@ -979,7 +979,7 @@ class Dbm {
 
 		let affectedRows = 0;
 		const { fields: fieldNames, data, tablePrefix } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex, true )
-		const { fields: fieldNamesFormulas, dataFormulas, tablePrefixFormulas } = this.fetchFormulas( this.spreadsheetId, this.sheetNameOrIndex, true )
+		const { fields: fieldNamesFormulas, data: dataFormulas } = this.fetchFormulas( this.spreadsheetId, this.sheetNameOrIndex, true )
 		const timestampOperation = new Date();
 		debug( 'fieldNames for filter obj fields', fieldNames )
 		let newData = Dbm.validateObjectFields( originalData, fieldNames );
@@ -1045,7 +1045,7 @@ class Dbm {
 					let rowsObjToUpdate = rowsToUpdate.map( row => {
 						fieldNames.forEach( ( fieldName, fieldIndex ) => {
 							// values with undefined value, are discarded
-							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( fieldNamesFormulas[ row.index-2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
+							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( dataFormulas[ row.index-2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
 						} );
 						return row
 					} );

@@ -3,7 +3,7 @@
 This project is versioning following the rules on  [Semantic Versioning](http://semver.org/).
 
 <!-- ## WIP -->
-## 1.1.0 - 2025-01-21
+## 1.1.2 - 2025-01-21
 
 ### Fixed
 
