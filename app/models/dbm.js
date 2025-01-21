@@ -465,7 +465,7 @@ class Dbm {
 		this._addNewFilterToGroup( [ fieldName, "!=", "" ] );
 		return this;
 	}
-	
+
 	whereNull( fieldName ) {
 		this._addNewFilterToGroup( [ fieldName, "=", "" ] );
 		return this;
@@ -536,8 +536,8 @@ class Dbm {
 	 * @returns 
 	 */
 	fetchData( spreadsheetId, sheetNameOrIndex, includeDeleted = false, fieldNamesPrefix = null ) {
-		logger( 'DBM', "spreadsheetId on fetchData: " + spreadsheetId );
-		logger( 'DBM', "sheetNameOrIndex on fetchData: " + sheetNameOrIndex );
+		logger( "spreadsheetId on fetchData: " + spreadsheetId, 'info' );
+		logger( "sheetNameOrIndex on fetchData: " + sheetNameOrIndex, 'info' );
 		const spreadsheet = SpreadsheetApp.openById( spreadsheetId );
 
 		if ( !spreadsheet ) {
@@ -569,9 +569,46 @@ class Dbm {
 		return { tablePrefix: prefix, fields, data: values };
 	}
 
+	/**
+	 * 
+	 * @param {String} spreadsheetId Spreadsheet ID
+	 * @param {String} sheetNameOrIndex Sheet ID or 0-index within its parent spreadsheet
+	 * @param {Boolean} includeDeleted Indicates wheter or not it must include soft deleted records
+	 * @param {String} fieldNamesPrefix Prefix to add to the field names. Default: Sheet Name
+	 * @returns 
+	 */
+	fetchFormulas( spreadsheetId, sheetNameOrIndex, includeDeleted = false ) {
+		const spreadsheet = SpreadsheetApp.openById( spreadsheetId );
+
+		if ( !spreadsheet ) {
+			throw new DbExceptionNotFound( `The spreadsheet with ID ${ spreadsheetId } doesn't exist` );
+		}
+
+		const sheet = typeof sheetNameOrIndex === 'number' ?
+			spreadsheet.getSheets()[ sheetNameOrIndex ] : spreadsheet.getSheetByName( sheetNameOrIndex );
+
+
+		if ( !sheet ) {
+			throw new DbExceptionNotFound( `The sheet ${ sheetNameOrIndex } was not found in spreadsheet with ID ${ spreadsheetId }` );
+		}
+
+		const prefix = fieldNamesPrefix || sheet.getName();
+		const range = sheet.getDataRange();
+		let values = range.getFormulas();
+		const fields = values.shift(); // Removes the first row and returns it
+
+		//  filter deleted fields by default
+		const deletedAtFieldIndex = fields.indexOf( "deleted_at" );
+		if ( deletedAtFieldIndex !== -1 && !includeDeleted ) {
+			values = values.filter( row => !row[ deletedAtFieldIndex ] || row[ deletedAtFieldIndex ] === 'null' )
+		}
+
+		return { tablePrefix: prefix, fields, data: values };
+	}
+
 	getTableFields() {
-		logger( 'DBM', "spreadsheetId on fetchData: " + this.spreadsheetId );
-		logger( 'DBM', "sheetNameOrIndex on fetchData: " + this.sheetNameOrIndex );
+		logger( "spreadsheetId on fetchData: " + this.spreadsheetId, 'info' );
+		logger( "sheetNameOrIndex on fetchData: " + this.sheetNameOrIndex, 'info' );
 		const spreadsheet = SpreadsheetApp.openById( this.spreadsheetId );
 
 		if ( !spreadsheet ) {
@@ -692,7 +729,7 @@ class Dbm {
 		// reset filters in Dbm instance
 		this.resetQueryModifiers();
 
-		logger( 'DBM', `SELECT. Total affected rows: ${ this.resultTable.data.length }` );
+		logger( `SELECT. Total affected rows: ${ this.resultTable.data.length }`, 'info' );
 		return this;
 	}
 
@@ -706,7 +743,7 @@ class Dbm {
 			let row = this.resultTable.data[ 0 ];
 			let parsedData = {};
 			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
-				parsedData[ this.resultTable.fields[ fieldIndex ] ]( Parser.parse( row[ fieldIndex ] ) )
+				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
 			}
 			return parsedData;
 		} else {
@@ -722,7 +759,7 @@ class Dbm {
 		this.select();
 		return this.resultTable.data.length;
 	}
-	
+
 	/**
 	 * 
 	 * @returns {string[] | null} get the first item or null
@@ -733,13 +770,30 @@ class Dbm {
 			let row = this.resultTable.data[ 0 ];
 			let parsedData = {};
 			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
-				parsedData[ this.resultTable.fields[ fieldIndex ] ]( Parser.parse( row[ fieldIndex ] ) )
+				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
 			}
 			return parsedData;
 		} else {
 			return null
 		}
+	}
 
+	/**
+ * 
+ * @returns {string[] | null} get the lsat item or null
+ */
+	last( fields = "*" ) {
+		this.select( fields );
+		if ( this.resultTable.data.length !== 0 ) {
+			let row = this.resultTable.data.pop();
+			let parsedData = {};
+			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
+				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
+			}
+			return parsedData;
+		} else {
+			return null
+		}
 	}
 
 	get( fields = "*" ) {
@@ -900,7 +954,7 @@ class Dbm {
 				// reset filters in Dbm instance
 				this.resetQueryModifiers();
 
-				logger( 'DBM', `INSERT. Total affected rows: ${ rowsToInsert.length }` );
+				logger( `INSERT. Total affected rows: ${ rowsToInsert.length }`, 'info' );
 				const lastInsertedId = rowsToInsert[ rowsToInsert.length - 1 ][ idFieldIndex ];
 				return lastInsertedId;
 			}
@@ -909,7 +963,7 @@ class Dbm {
 			}
 		}
 		catch ( error ) {
-			logger.error( 'DBM', error );
+			logger( error.message, 'error' );
 			lock.releaseLock()
 			throw new DbExceptionInternalError( error.message, error );
 		}
@@ -927,6 +981,7 @@ class Dbm {
 
 		let affectedRows = 0;
 		const { fields: fieldNames, data, tablePrefix } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex, true )
+		const { fields: fieldNamesFormulas, dataFormulas, tablePrefixFormulas } = this.fetchFormulas( this.spreadsheetId, this.sheetNameOrIndex, true )
 		const timestampOperation = new Date();
 		debug( 'fieldNames for filter obj fields', fieldNames )
 		let newData = Dbm.validateObjectFields( originalData, fieldNames );
@@ -992,7 +1047,7 @@ class Dbm {
 					let rowsObjToUpdate = rowsToUpdate.map( row => {
 						fieldNames.forEach( ( fieldName, fieldIndex ) => {
 							// values with undefined value, are discarded
-							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : row.oldValues[ fieldIndex ];
+							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( fieldNamesFormulas[ row.index-2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
 						} );
 						return row
 					} );
@@ -1022,7 +1077,7 @@ class Dbm {
 					this.resetQueryModifiers();
 					lock.releaseLock();
 
-					logger( 'DBM', `UPDATE. Total affected rows: ${ affectedRows }` );
+					logger( `UPDATE. Total affected rows: ${ affectedRows }`, 'info' );
 					const lastUpdatedId = rowsToUpdate[ rowsToUpdate.length - 1 ].id;
 					return lastUpdatedId;
 				}
@@ -1036,7 +1091,7 @@ class Dbm {
 			}
 		}
 		else {
-			logger( 'DBM', `UPDATE. Total affected rows: 0` );
+			logger( `UPDATE. Total affected rows: 0`, 'info' );
 		}
 	}
 
@@ -1100,7 +1155,7 @@ class Dbm {
 					// reset filters in Dbm instance
 					this.resetQueryModifiers();
 
-					logger( 'DBM', `DELETE. Total affected rows: ${ affectedRows }` );
+					logger( `DELETE. Total affected rows: ${ affectedRows }`, 'info' );
 					const lastDeletedId = rowsToDelete[ rowsToDelete.length - 1 ].id;
 					return lastDeletedId;
 				}
@@ -1111,7 +1166,7 @@ class Dbm {
 			}
 		}
 		else {
-			logger( 'DBM', `DELETE. Total affected rows: 0` );
+			logger( `DELETE. Total affected rows: 0`, 'info' );
 		}
 	}
 }

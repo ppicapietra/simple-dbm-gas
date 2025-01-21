@@ -29,11 +29,11 @@ SimpleDBM.config({ logger: SimpleLogger });
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').select().get();
 
 /**o picking only specific fields/columns */
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').select(["fieldName", "fieldName2"]).firstOrFail();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').select(["fieldName", "fieldName2"]).firstOrFail();
 
 /**o filtering results */
 const filterFunction = (cellValue, desiredResult) => {/** do some magic and return true/false */} 
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', filterFunction, 'value').select(["fieldName", "fieldName2"]).get();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', filterFunction, 'value').select(["fieldName", "fieldName2"]).get();
 
 /**o ordering results */
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').withOrder('table.field-name', 'desc').select().getAllAsObjects();
@@ -44,7 +44,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').withOrder('table.field-nam
 ```javascript
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post", "=" ], 'tableAlias').select();
 
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
 
 // several criteria conditions to the join
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [[ "id", "id_post" ], [ "author_id", "author_id" ]], 'tableAlias').select();
@@ -65,15 +65,15 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').withDefaults(defaultVauesO
 #### Update
 
 ```javascript
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').update({ fieldName: 'new-value' });
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').update({ fieldName: 'new-value' });
 ```
 
 #### Delete
 
 ```javascript
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', '=', 'value').delete();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').delete();
 
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', 'value').delete(); //
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value').delete(); //
 ```
 
 ## DBM Methods
@@ -84,12 +84,18 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').with('fieldName', 'value')
 | delete(hardDelete) | Deletes data from the spreadsheet based on filters.<br>- hardDelete(bool): Optional. Whether to delete the registry or just mark it as deleted | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
 | insert(data) | Inserts data into the spreadsheet. <br> - data (array \| object): Data to be inserted. Required. | SimpleDBM instance for chaining. | Yes, if the data type is invalid. |
 | join(spreadsheetId, sheetNameOrIndex, criterias, [as]) | Performs join operations with another sheet. <br> - spreadsheetId (string): Spreadsheet ID to join. Required. <br> - sheetNameOrIndex (string \| number): Name or index of the sheet to join. Required. <br> - criterias (array): Criteria for joining. Required. <br> - as (string): Optional alias for joined data. Default: null. | SimpleDBM instance for chaining. | Yes, if join criteria are invalid or ambiguous. |
-| withOrder(fieldName, [orderType]) | Adds order clause to the results.<br>- fieldName (string): Field name or column to use in ordering. When joins operations are performed, fieldName has to be prefixed with table name with dot notation. Required. <br>- orderType (string): if it is asc or desc. Default: desc | None | Yes, if fieldName is missing. |
+| orderBy(fieldName, [orderType]) | Adds order clause to the results.<br>- fieldName (string): Field name or column to use in ordering. When joins operations are performed, fieldName has to be prefixed with table name with dot notation. Required. <br>- orderType (string): if it is asc or desc. Default: desc | None | Yes, if fieldName is missing. |
 | select([fields]) | Selects data from the spreadsheet. <br> - fields (string \| array): Fields to select, "*" for all. Default: "*". | Paginator class instance | No |
 | sheet(sheetNameOrIndex, [as]) | Sets the spreadsheet and an optional prefix for subsequent operations. <br> - sheetNameOrIndex (string \| number): Name or index of the sheet. Required. <br> - as (string): Optional prefix for field names. Default: null. | SimpleDBM instance for chaining. | Yes, if the spreadsheet is not found. |
 | spreadsheet(spreadsheetId) | Creates a SimpleDBM instance for a specified spreadsheet. <br> - spreadsheetId (string): Spreadsheet ID. Required. | SimpleDBM instance for chaining. | No |
 | update(data) | Updates data in the spreadsheet. <br> - data (object): Data to be updated. Required. id Data contains an id property, a new where filter is defined limiting changes to records with that id| SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
-| with(fieldName, criteria, value) | Adds filters to the operation. <br> - fieldName: Name of the field to be compared. <br> - criteria: string, regular expression, or function used to evaluate the acceptance condition. <br> - value: (optional) value used for comparison in the evaluation. | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
+| where(fieldName, criteria, value) | Adds filters to the operation. <br> - fieldName: Name of the field to be compared. <br> - criteria: string, regular expression, or function used to evaluate the acceptance condition. <br> - value: (optional) value used for comparison in the evaluation. | SimpleDBM instance for chaining. | No |
+| whereNotNull(fieldName) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as not null. | SimpleDBM instance for chaining. | No |
+| whereNull(fieldName) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as null. | SimpleDBM instance for chaining. | No |
+| orWhere(fieldName, criteria?, value) | Adds a new group of where filters to the operation. Arguments are similar to where method. | SimpleDBM instance for chaining. | No |
+| or() | Initialize a new empty group of where filters to the operation. | SimpleDBM instance for chaining. | No |
+| whereAny(conditions: Array<[fieldName, [criteria], value]>) | Adds filters to the operation with OR logic. Every condition item is similar to a where clause. | SimpleDBM instance for chaining. | Yes, if conditions is not an array of any condition item isn't a where valid clause. |
+| withTrash() | Adds filters to include soft deleted records. | SimpleDBM instance for chaining. | No |
 | withDefaults(defaultValues) | Sets default values for insert and update operations. <br> - defaultValues (object): Object with default values. Required. | SimpleDBM instance for chaining. | No |
 
 ## Where criterias operators
