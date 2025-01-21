@@ -574,7 +574,6 @@ class Dbm {
 	 * @param {String} spreadsheetId Spreadsheet ID
 	 * @param {String} sheetNameOrIndex Sheet ID or 0-index within its parent spreadsheet
 	 * @param {Boolean} includeDeleted Indicates wheter or not it must include soft deleted records
-	 * @param {String} fieldNamesPrefix Prefix to add to the field names. Default: Sheet Name
 	 * @returns 
 	 */
 	fetchFormulas( spreadsheetId, sheetNameOrIndex, includeDeleted = false ) {
@@ -592,7 +591,6 @@ class Dbm {
 			throw new DbExceptionNotFound( `The sheet ${ sheetNameOrIndex } was not found in spreadsheet with ID ${ spreadsheetId }` );
 		}
 
-		const prefix = fieldNamesPrefix || sheet.getName();
 		const range = sheet.getDataRange();
 		let values = range.getFormulas();
 		const fields = values.shift(); // Removes the first row and returns it
@@ -603,7 +601,7 @@ class Dbm {
 			values = values.filter( row => !row[ deletedAtFieldIndex ] || row[ deletedAtFieldIndex ] === 'null' )
 		}
 
-		return { tablePrefix: prefix, fields, data: values };
+		return { fields, data: values };
 	}
 
 	getTableFields() {
