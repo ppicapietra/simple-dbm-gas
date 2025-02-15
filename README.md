@@ -31,6 +31,13 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').select().get();
 /**o picking only specific fields/columns */
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').select(["fieldName", "fieldName2"]).firstOrFail();
 
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'in', ['value1', 'value2']).select(["fieldName", "fieldName2"]).firstOrFail();
+
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').whereIn('fieldName', ['value1', 'value2']).select(["fieldName", "fieldName2"]).firstOrFail();
+
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').whereNotIn('fieldName', ['value1', 'value2']).orWhere('fieldName2', '=', 'value3').select(["fieldName", "fieldName2"]).firstOrFail();
+
+
 /**o filtering results */
 const filterFunction = (cellValue, desiredResult) => {/** do some magic and return true/false */} 
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', filterFunction, 'value').select(["fieldName", "fieldName2"]).get();
@@ -92,6 +99,8 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value'
 | where(fieldName, criteria, value) | Adds filters to the operation. <br> - fieldName: Name of the field to be compared. <br> - criteria: string, regular expression, or function used to evaluate the acceptance condition. <br> - value: (optional) value used for comparison in the evaluation. | SimpleDBM instance for chaining. | No |
 | whereNotNull(fieldName) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as not null. | SimpleDBM instance for chaining. | No |
 | whereNull(fieldName) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as null. | SimpleDBM instance for chaining. | No |
+| whereIn(fieldName, values) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as in the array of values. <br> - values: Array of values to validate against. | SimpleDBM instance for chaining. | No |
+| whereNotIn(fieldName, values) | Adds filters to the operation. <br> - fieldName: Name of the field to validate as not in the array of values. <br> - values: Array of values to validate against. | SimpleDBM instance for chaining. | No |
 | orWhere(fieldName, criteria?, value) | Adds a new group of where filters to the operation. Arguments are similar to where method. | SimpleDBM instance for chaining. | No |
 | or() | Initialize a new empty group of where filters to the operation. | SimpleDBM instance for chaining. | No |
 | whereAny(conditions: Array<[fieldName, [criteria], value]>) | Adds filters to the operation with OR logic. Every condition item is similar to a where clause. | SimpleDBM instance for chaining. | Yes, if conditions is not an array of any condition item isn't a where valid clause. |
@@ -105,6 +114,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value'
 | regExp | string | string |
 | function | Any | the function is called with field value as a first parameter and filter value as a second parameter|
 | 'in' | Array | if the field value is in the array of filter values|
+| 'not in' | Array | if the field value is not in the array of filter values|
 | "=", "!=", ">", "<", ">=", "<=" | string | a common comparison between the field and filter values. Date values are converted calling getTime() method. Numbers are parsed if both are numbers  |
 | "X=", "X>=", "X<=" (where "X" is a number) | number | a common comparison between the field and filter values, parsing field value and filter value to a number, where the filter value is a X multiple of field value|
 

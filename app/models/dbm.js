@@ -156,7 +156,7 @@ class Dbm {
 	static validateComparisonOperator( operator ) {
 		if ( ObjectHelper.getType( operator ) === "function" ) return;
 		if ( typeof operator === "string"
-			&& ![ "=", "!=", ">", "<", ">=", "<=", "not in", "in", ].includes( operator ) && !( /^\*\d+(<|>)?=$/.test( operator ) ) ) {
+			&& ![ "=", "!=", ">", "<", ">=", "<=", "not in", "in" ].includes( operator ) && !( /^\*\d+(<|>)?=$/.test( operator ) ) ) {
 			throw new DbExceptionMissingOrWrongParams( "Comparison operator in filter isn't valid. operator: " + operator.toString() );
 		}
 	}
@@ -468,6 +468,16 @@ class Dbm {
 
 	whereNull( fieldName ) {
 		this._addNewFilterToGroup( [ fieldName, "=", "" ] );
+		return this;
+	}
+	
+	whereIn( fieldName, values ) {
+		this._addNewFilterToGroup( [ fieldName, "in", values ] );
+		return this;
+	}
+
+	whereNotIn( fieldName, values ) {
+		this._addNewFilterToGroup( [ fieldName, "not in", values ] );
 		return this;
 	}
 
