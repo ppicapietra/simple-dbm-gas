@@ -920,10 +920,10 @@ class Dbm {
 						let validatedObj = Dbm.filterObjectKeysWithTableFields( obj, fieldNames );
 						// add the timestamp markers
 						if ( fieldNames.includes( 'updated_at' ) ) {
-							validatedObj.updated_at = timestampOperation.toUTCString();
+							validatedObj.updated_at = Parser.prepareForStoring( timestampOperation );
 						}
 						if ( fieldNames.includes( 'created_at' ) ) {
-							validatedObj.created_at = timestampOperation.toUTCString();
+							validatedObj.created_at = Parser.prepareForStoring( timestampOperation );
 						}
 
 						const newId = generateId();
@@ -936,10 +936,10 @@ class Dbm {
 
 					// add the timestamp markers
 					if ( fieldNames.includes( 'updated_at' ) ) {
-						validatedData.updated_at = Parser.prepareForStoring( timestampOperation );
+						validatedData.updated_at = Parser.prepareForStoring( timestampOperation );;
 					}
 					if ( fieldNames.includes( 'created_at' ) ) {
-						validatedData.created_at = Parser.prepareForStoring( timestampOperation );
+						validatedData.created_at = Parser.prepareForStoring( timestampOperation );;
 					}
 					const newId = generateId();
 					rowsToInsert = [ this.objectToRow( validatedData, fieldNames, newId ) ];
@@ -1117,7 +1117,7 @@ class Dbm {
 		let affectedRows = 0;
 
 		if ( !hardDelete ) { // is a soft delete
-			return this.update( { deleted_at: timestampOperation.toUTCString() } );
+			return this.update( { deleted_at: Parser.prepareForStoring( timestampOperation ) } );
 		}
 
 		const { fields: fieldNames, data } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex );
