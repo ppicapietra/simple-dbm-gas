@@ -49,7 +49,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').withOrder('table.field-nam
 #### With Join
 
 ```javascript
-dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post", "=" ], 'tableAlias').select();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "=", "id_post"], 'tableAlias').select();
 
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
 
