@@ -470,7 +470,7 @@ class Dbm {
 		this._addNewFilterToGroup( [ fieldName, "=", "" ] );
 		return this;
 	}
-	
+
 	whereIn( fieldName, values ) {
 		this._addNewFilterToGroup( [ fieldName, "in", values ] );
 		return this;
@@ -743,7 +743,8 @@ class Dbm {
 
 	/**
 	 * 
-	 * @returns {string[]} get the first ítem or throw an exception if there isn't one
+	 * @param {[String | String[]]} fields fields to retrieve
+	 * @returns {Object} get the first item or throw an exception if there isn't one
 	 */
 	firstOrFail( fields = "*" ) {
 		this.select( fields );
@@ -761,7 +762,7 @@ class Dbm {
 
 	/**
 	 * 
-	 * @returns {string[] | null} get the first item or null
+	 * @returns {Number} get the total number of records
 	 */
 	count() {
 		this.select();
@@ -769,41 +770,56 @@ class Dbm {
 	}
 
 	/**
-	 * 
-	 * @returns {string[] | null} get the first item or null
+	 * @param {[String | String[]]} fields fields to retrieve
+	 * @returns {Object | null} get the first item or null
 	 */
 	first( fields = "*" ) {
 		this.select( fields );
 		if ( this.resultTable.data.length !== 0 ) {
 			let row = this.resultTable.data[ 0 ];
-			let parsedData = {};
-			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
-				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
-			}
-			return parsedData;
+			return this._rowArrayToObject( row );
 		} else {
 			return null
 		}
 	}
 
 	/**
- * 
- * @returns {string[] | null} get the lsat item or null
- */
+	 * @param {[String | String[]]} fields fields to retrieve
+	 * @returns {Object | null} get the last item or null
+	 */
 	last( fields = "*" ) {
 		this.select( fields );
 		if ( this.resultTable.data.length !== 0 ) {
 			let row = this.resultTable.data.pop();
-			let parsedData = {};
-			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
-				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
-			}
-			return parsedData;
+			return this._rowArrayToObject( row );
 		} else {
 			return null
 		}
 	}
 
+	_rowArrayToObject(row) {
+		let parsedData = {};
+		for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
+			const parsedValue = Parser.parse( row[ fieldIndex ] );
+			const originalFieldName = this.resultTable.fields[ fieldIndex ];
+			const [ tableName, fieldName ] = originalFieldName.split( '.' );
+
+			// initialize table key if it isn't exist yet
+			if ( !parsedData[ tableName ] ) {
+				parsedData[ tableName ] = {};
+			}
+			parsedData[ tableName ][ fieldName ] = parsedValue;
+			parsedData[ originalFieldName ] = parsedValue;
+		}
+		return parsedData;
+	}
+
+
+	/**
+		 * This method returns the result of the query as an array of arrays, without field names.
+		 * @param {[String | String[]]} fields fields to retrieve
+		 * @returns {Object[]} the result of the query
+		 */
 	get( fields = "*" ) {
 		this.select( fields );
 		let data = this.resultTable.data;
@@ -819,34 +835,29 @@ class Dbm {
 		return parsedData;
 	}
 
+	/**
+	 * Alias for getAllAsObjects
+	 * @returns {Object[]} get all records as objects
+	 */
+	getAsObjects() {
+		return this.getAllAsObjects();
+	}
+
+	/**
+	 * 
+	 * @returns {Object[]} get all records as objects
+	 */
 	getAllAsObjects() {
 		this.select();
 		const fields = this.resultTable.fields;
 		let data = this.resultTable.data;
+		let result = [];
 
-		const objectsArray = data.map( row => {
-			let obj = {};
-
-			row.forEach( ( value, index ) => {
-				const parsedValue = Parser.parse( value );
-				const originalFieldName = fields[ index ];
-				const [ tableName, fieldName ] = originalFieldName.split( '.' );
-
-				// initialize table key if it isn't exist yet
-				if ( !obj[ tableName ] ) {
-					obj[ tableName ] = {};
-				}
-
-				// assign the field parsed value in nested object
-				obj[ tableName ][ fieldName ] = parsedValue;
-				// keep the original field name in the main array of fields
-				obj[ originalFieldName ] = parsedValue;
-			} );
-
-			return obj;
+		data.forEach( row => {
+			result.push( this._rowArrayToObject( row ) );
 		} );
 
-		return objectsArray;
+		return result;
 	}
 
 	/**
@@ -1055,7 +1066,7 @@ class Dbm {
 					let rowsObjToUpdate = rowsToUpdate.map( row => {
 						fieldNames.forEach( ( fieldName, fieldIndex ) => {
 							// values with undefined value, are discarded
-							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( dataFormulas[ row.index-2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
+							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( dataFormulas[ row.index - 2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
 						} );
 						return row
 					} );
