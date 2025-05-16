@@ -900,7 +900,7 @@ class Dbm {
 				const spreadsheet = SpreadsheetApp.openById( this.spreadsheetId );
 				const sheet = ObjectHelper.getType( this.sheetNameOrIndex ) === 'number' ? spreadsheet.getSheets()[ this.sheetNameOrIndex ] : spreadsheet.getSheetByName( this.sheetNameOrIndex );
 
-				const fieldNames = sheet.getRange( 1, 1, 1, sheet.getLastColumn() ).getValues()[ 0 ];
+				const fieldNames = sheet.getRange( 1, 1, 1, sheet.getLastColumn() ).getDisplayValues()[ 0 ];
 				const getNewSequentialId = () => {
 					if ( !lastSecuentialIdGenerated ) {
 						const lastRow = sheet.getLastRow();
