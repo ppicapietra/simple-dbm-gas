@@ -46,6 +46,14 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', filterF
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').withOrder('table.field-name', 'desc').select().getAllAsObjects();
 ```
 
+#### Uniques
+
+```javascript
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').unique('col-name').get();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').unique('col-name', 'col2-name').get();
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').unique('col-name', ['col2-name', 'col3-name']).get();
+```
+
 #### With Join
 
 ```javascript
@@ -107,6 +115,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value'
 | withTrash() | Adds filters to include soft deleted records. | SimpleDBM instance for chaining. | No |
 | withDefaults(defaultValues) | Sets default values for insert and update operations. <br> - defaultValues (object): Object with default values. Required. | SimpleDBM instance for chaining. | No |
 | count() | Return the total records for a select query | An integer representing the total records. | No |
+| unique(args: Array<String\|Array<String>>\|String) | apply distinct over selected columns or combination of them | the filtered table. | Yes, if a filter doesn't match a column|
 
 ## Where criterias operators
 

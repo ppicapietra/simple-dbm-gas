@@ -777,12 +777,11 @@ class Dbm {
 		// Apply filters to the dataset (WHERE clause)
 		let filteredTable = Dbm.filterTableData( mainTable, this.whereFilters );
 
-		// Remove duplicates
-		Dbm.removeDuplicates( filteredTable, this.distinctFilters );
-
 		// Apply defined orderings
 		Dbm.orderResults( filteredTable, this.orders );
 
+		// Remove duplicates
+		Dbm.removeDuplicates( filteredTable, this.distinctFilters );
 
 		// If a specific select of fields is provided, select only those fields
 		this.resultTable = fields === "*" ?
