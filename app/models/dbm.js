@@ -321,6 +321,47 @@ class Dbm {
 		return table;
 	}
 
+	static removeDuplicates( table, filters ) {
+		const { data } = table;
+		if ( !filters || filters.length === 0 ) return table;
+
+		try {
+			const filterColIndexes = filters.map( ( f ) => {
+				if ( Array.isArray( f ) ) {
+					return f.map( colName => table.fields.indexOf( Dbm.validateFieldName( colName, table.fields ) ) )
+				}
+				return [ table.fields.indexOf( Dbm.validateFieldName( f, table.fields ) ) ]
+			} );
+
+			const sets = filterColIndexes.map( () => new Set() )
+			const result = []
+
+			for ( const row of data ) {
+				let isUnique = true
+				const keys = filterColIndexes.map( ( indexes ) =>
+					indexes.map( ( i ) => row[ i ] ).join( "|" ),
+				)
+
+				for ( let i = 0; i < keys.length; i++ ) {
+					if ( sets[ i ].has( keys[ i ] ) ) {
+						isUnique = false
+						break
+					}
+				}
+
+				if ( isUnique ) {
+					keys.forEach( ( key, i ) => sets[ i ].add( key ) )
+					result.push( row )
+				}
+			}
+			table.data = result;
+			return table;
+		}
+		catch ( e ) {
+			throw new DbExceptionInternalError( `Error processing query distintincts:  ${ e.message }` );
+		}
+	}
+
 	/**
 	 * 
 	 * @param {String[]} fieldNames row's fields names
@@ -389,6 +430,7 @@ class Dbm {
 		this.sheetNameOrIndex = sheetNameOrIndex;
 		this.sheetAlias = sheetAlias;
 		this.whereFilters = [];
+		this.distinctFilters = [];
 		this.orders = [];
 		this.defaults = {};
 		this.idStrategicType = idStrategicType;
@@ -421,6 +463,7 @@ class Dbm {
 
 	resetQueryModifiers() {
 		this.whereFilters = [];
+		this.distinctFilters = [];
 		this.orders = [];
 		this.defaults = {};
 		this.includeDeleted = false;
@@ -511,6 +554,14 @@ class Dbm {
 		else {
 			this.whereFilters[ this.whereFilters.length - 1 ] = [ ...lastGroup, new OrClause( orFilters ) ];
 		}
+		return this;
+	}
+
+	unique( ...fieldNames ) {
+		if ( fieldNames.length === 0 ) throw new DbExceptionMissingOrWrongParams( 'Missing arguments for unique filter' );
+		fieldNames.forEach( fieldName => {
+			this.distinctFilters.push( fieldName );
+		} )
 		return this;
 	}
 
@@ -724,10 +775,14 @@ class Dbm {
 		}
 
 		// Apply filters to the dataset (WHERE clause)
-		const filteredTable = Dbm.filterTableData( mainTable, this.whereFilters );
+		let filteredTable = Dbm.filterTableData( mainTable, this.whereFilters );
+
+		// Remove duplicates
+		Dbm.removeDuplicates( filteredTable, this.distinctFilters );
 
 		// Apply defined orderings
 		Dbm.orderResults( filteredTable, this.orders );
+
 
 		// If a specific select of fields is provided, select only those fields
 		this.resultTable = fields === "*" ?
@@ -797,7 +852,7 @@ class Dbm {
 		}
 	}
 
-	_rowArrayToObject(row) {
+	_rowArrayToObject( row ) {
 		let parsedData = {};
 		for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
 			const parsedValue = Parser.parse( row[ fieldIndex ] );
