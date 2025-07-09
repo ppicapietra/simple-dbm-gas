@@ -39,10 +39,10 @@ class Parser {
 		}
 
 		// Try converting to boolean
-		if ( value.toLowerCase() === "true" ) {
+		if ( value?.toLowerCase() === "true" ) {
 			return true;
 		}
-		if ( value.toLowerCase() === "false" ) {
+		if ( value?.toLowerCase() === "false" ) {
 			return false;
 		}
 
@@ -53,7 +53,7 @@ class Parser {
 		}
 
 		// Try to convert a date
-		if ( value.includes( "GMT" ) ) {
+		if ( value?.includes( "GMT" ) ) {
 			const parsedDate = new Date( value );
 			if ( !isNaN( parsedDate.getTime() ) ) {
 				return parsedDate;
@@ -61,7 +61,7 @@ class Parser {
 		}
 
 		// Try to convert to JSON
-		if ( ( value.startsWith( "{" ) && value.endsWith( "}" ) ) || ( value.startsWith( "[" ) && value.endsWith( "]" ) ) ) {
+		if ( ( value?.startsWith( "{" ) && value?.endsWith( "}" ) ) || ( value?.startsWith( "[" ) && value?.endsWith( "]" ) ) ) {
 			try {
 				const parsedJson = JSON.parse( value );
 				if ( typeof parsedJson === "object" ) {

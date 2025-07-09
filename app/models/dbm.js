@@ -1048,66 +1048,68 @@ class Dbm {
 	 * @returns {Number} last id updated
 	 */
 	update( originalData ) {
-		if ( !this.spreadsheetId || !this.sheetNameOrIndex ) {
+		if ( !this.spreadsheetId || this.sheetNameOrIndex === undefined || this.sheetNameOrIndex === null ) {
 			throw new DbExceptionMissingOrWrongParams( "Spreadsheet ID or Sheet name not provided" );
-		}
-
-		let affectedRows = 0;
-		const { fields: fieldNames, data, tablePrefix } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex, true )
-		const { fields: fieldNamesFormulas, data: dataFormulas } = this.fetchFormulas( this.spreadsheetId, this.sheetNameOrIndex, true )
-		const timestampOperation = new Date();
-		debug( 'fieldNames for filter obj fields', fieldNames )
-		let newData = Dbm.validateObjectFields( originalData, fieldNames );
-
-		if ( newData[ tablePrefix + '.id' ] ) {
-			// clean all the current filters for ID if I have an ID defined to match against records
-			this.whereFilters = this.whereFilters.map( whereFiltersGroup => whereFiltersGroup.filter( ( [ filterFieldName ] ) => filterFieldName !== "id" ) );
-			if ( this.whereFilters.length === 0 ) {
-				this.whereFilters.push( [ [ 'id', '=', newData[ tablePrefix + '.id' ] ] ] );
-			}
-			else {
-				this.whereFilters[ 0 ] = [ 'id', '=', newData[ tablePrefix + '.id' ] ]; // if an object with ID is defined, the first filter is updated to match the record with that ID
-			}
 		}
 
 		if ( !Array.isArray( this.whereFilters ) || this.whereFilters.length === 0 ) {
 			throw new DbExceptionMissingOrWrongParams( 'No filters set for update' );
 		}
 
-		// remove data fields aren't allowed to update by this method
-		delete newData[ tablePrefix + '.id' ];
-		delete newData[ tablePrefix + '.updated_at' ];
-		delete newData[ tablePrefix + '.created_at' ];
+		let affectedRows = 0;
+		const timestampOperation = new Date();
 
-		// Apply filters to find the rows to update.
-		const normalizedFilters = this.whereFilters.map( filterGroup => Dbm.validateFilters( filterGroup, fieldNames ) );
-		let rowsToUpdate = data.map( ( row, index ) => {
-			const match = normalizedFilters.some( filterGroup => filterGroup.every( filter => {
-				if ( filter instanceof OrClause ) return filter.evaluate( row, fieldNames ); // orClause has its own evaluation method
-				const [ filterFieldName, comparisonOperator, filterFieldValue ] = filter;
-				const fieldIndex = fieldNames.indexOf( filterFieldName );
+		// Obtain lock BEFORE reading data to avoid race conditions
+		var lock = LockService.getScriptLock();
+		try {
+			if ( lock.tryLock( 30000 ) ) {
+				
+				// Read data AFTER obtaining the lock
+				const { fields: fieldNames, data, tablePrefix } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex, true )
+				const { fields: fieldNamesFormulas, data: dataFormulas } = this.fetchFormulas( this.spreadsheetId, this.sheetNameOrIndex, true )
+				
+				let newData = Dbm.validateObjectFields( originalData, fieldNames );
 
-				if ( fieldIndex === -1 ) {
-					throw new Error( `Field name is wrong: ${ filterFieldName }` );
+				if ( newData[ tablePrefix + '.id' ] ) {
+					// clean all the current filters for ID if I have an ID defined to match against records
+					this.whereFilters = this.whereFilters.map( whereFiltersGroup => whereFiltersGroup.filter( ( [ filterFieldName ] ) => filterFieldName !== "id" ) );
+					if ( this.whereFilters.length === 0 ) {
+						this.whereFilters.push( [ [ 'id', '=', newData[ tablePrefix + '.id' ] ] ] );
+					}
+					else {
+						this.whereFilters[ 0 ] = [ 'id', '=', newData[ tablePrefix + '.id' ] ]; // if an object with ID is defined, the first filter is updated to match the record with that ID
+					}
 				}
 
-				const cellValue = row[ fieldIndex ];
+				// remove data fields aren't allowed to update by this method
+				delete newData[ tablePrefix + '.id' ];
+				delete newData[ tablePrefix + '.updated_at' ];
+				delete newData[ tablePrefix + '.created_at' ];
 
-				return Dbm.evaluateFieldsOperation( cellValue, comparisonOperator, filterFieldValue );
-			} ) );
-			return {
-				index: match ? index + 2 : null, // why 2?: data first record is the 2nd row of the sheet, so row index 2, for array index 0. we just add 1 for headers row
-				oldValues: row,
-				values: {}
-			}
-		} )
-			.filter( row => row.index !== null );
+				// Apply filters to find the rows to update with validation data
+				const normalizedFilters = this.whereFilters.map( filterGroup => Dbm.validateFilters( filterGroup, fieldNames ) );
+				let rowsToUpdateWithData = data.map( ( row, index ) => {
+					const match = normalizedFilters.some( filterGroup => filterGroup.every( filter => {
+						if ( filter instanceof OrClause ) return filter.evaluate( row, fieldNames );
+						const [ filterFieldName, comparisonOperator, filterFieldValue ] = filter;
+						const fieldIndex = fieldNames.indexOf( filterFieldName );
 
-		if ( rowsToUpdate.length > 0 ) {
-			var lock = LockService.getScriptLock();
-			try {
-				if ( lock.tryLock( 30000 ) ) {
+						if ( fieldIndex === -1 ) {
+							throw new Error( `Field name is wrong: ${ filterFieldName }` );
+						}
 
+						const cellValue = row[ fieldIndex ];
+						return Dbm.evaluateFieldsOperation( cellValue, comparisonOperator, filterFieldValue );
+					} ) );
+					return match ? {
+						index: index + 2, // why 2?: data first record is the 2nd row of the sheet, so row index 2, for array index 0. we just add 1 for headers row
+						oldValues: row,
+						hash: Dbm.calculateRowHash( fieldNames, row ),
+						values: {}
+					} : null;
+				} ).filter( row => row !== null );
+
+				if ( rowsToUpdateWithData.length > 0 ) {
 					const spreadsheet = SpreadsheetApp.openById( this.spreadsheetId );
 					const sheet = ObjectHelper.getType( this.sheetNameOrIndex ) === 'number' ?
 						spreadsheet.getSheets()[ this.sheetNameOrIndex ] : spreadsheet.getSheetByName( this.sheetNameOrIndex );
@@ -1116,55 +1118,72 @@ class Dbm {
 						throw new Error( `The sheet ${ this.sheetNameOrIndex } was not found in spreadsheet with ID ${ this.spreadsheetId }` );
 					}
 
-					// we merge data and create the rows objects with the merged data
-					let rowsObjToUpdate = rowsToUpdate.map( row => {
-						fieldNames.forEach( ( fieldName, fieldIndex ) => {
-							// values with undefined value, are discarded
-							row.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? Parser.prepareForStoring( newData[ fieldName ] ) : ( dataFormulas[ row.index - 2 ][ fieldIndex ] || row.oldValues[ fieldIndex ] );
-						} );
-						return row
-					} );
+					// Validate each row before updating it
+					const validatedRowsToUpdate = [];
+					
+					for ( const rowInfo of rowsToUpdateWithData ) {
+						try {
+							// Get the current row of the sheet
+							const currentRowData = sheet.getRange( rowInfo.index, 1, 1, fieldNames.length ).getDisplayValues()[ 0 ];
+							
+							// Verify that the row still exists and matches our criteria
+							const currentRowHash = Dbm.calculateRowHash( fieldNames, currentRowData );
+							
+							// Validate that the current row matches the one we identified originally
+							if ( currentRowHash === rowInfo.hash ) {
+								// Preparar los valores actualizados para esta fila
+								fieldNames.forEach( ( fieldName, fieldIndex ) => {
+									// values with undefined value, are discarded
+									rowInfo.values[ fieldName ] = fieldName in newData && newData[ fieldName ] !== undefined ? 
+										Parser.prepareForStoring( newData[ fieldName ] ) : 
+										( dataFormulas[ rowInfo.index - 2 ][ fieldIndex ] || rowInfo.oldValues[ fieldIndex ] );
+								} );
 
-					const HASH_COLUMN_NAME = tablePrefix + '.hash';
-					const UPDATED_AT_COLUMN_NAME = tablePrefix + '.updated_at';
-					// adds the new hash to each row for later comparissions
-					let rowsToUpdateWithNewHash = rowsObjToUpdate.map( row => {
-						row.values[ HASH_COLUMN_NAME ] = Dbm.calculateRowHash( fieldNames, row.values );
-						return row;
-					} )
-						.map( row => { // should we update update_at field?
-							if ( row.values[ HASH_COLUMN_NAME ] !== row.oldValues[ HASH_COLUMN_NAME ] ) {
-								row.values[ UPDATED_AT_COLUMN_NAME ] = Parser.prepareForStoring( timestampOperation );
+								const HASH_COLUMN_NAME = tablePrefix + '.hash';
+								const UPDATED_AT_COLUMN_NAME = tablePrefix + '.updated_at';
+								
+								// adds the new hash to each row for later comparisons
+								rowInfo.values[ HASH_COLUMN_NAME ] = Dbm.calculateRowHash( fieldNames, rowInfo.values );
+								
+								// should we update update_at field?
+								if ( rowInfo.values[ HASH_COLUMN_NAME ] !== rowInfo.hash ) {
+									rowInfo.values[ UPDATED_AT_COLUMN_NAME ] = Parser.prepareForStoring( timestampOperation );
+								}
+
+								validatedRowsToUpdate.push( rowInfo );
+							} else {
+								logger( `Row ${ rowInfo.index } has changed since identification, skipping update`, 'warning' );
 							}
-							return row;
-						} )
+						} catch ( error ) {
+							// The row no longer exists or is inaccessible
+							logger( `Row ${ rowInfo.index } no longer exists or is inaccessible, skipping update`, 'warning' );
+						}
+					}
 
-					rowsToUpdateWithNewHash.forEach( row => {
-						const rowToUpdate = fieldNames.map( fieldName => row.values[ fieldName ] );
-
-						sheet.getRange( row.index, 1, 1, rowToUpdate.length ).setValues( [ rowToUpdate ] );
-						affectedRows++
+					// Update only the validated rows
+					validatedRowsToUpdate.forEach( rowInfo => {
+						const rowToUpdate = fieldNames.map( fieldName => rowInfo.values[ fieldName ] );
+						sheet.getRange( rowInfo.index, 1, 1, rowToUpdate.length ).setValues( [ rowToUpdate ] );
+						affectedRows++;
 					} );
 
 					// reset filters in Dbm instance and unlock the sheet
 					this.resetQueryModifiers();
+					SpreadsheetApp.flush();
 					lock.releaseLock();
 
 					logger( `UPDATE. Total affected rows: ${ affectedRows }`, 'info' );
-					const lastUpdatedId = rowsToUpdate[ rowsToUpdate.length - 1 ].id;
-					return lastUpdatedId;
+					return affectedRows > 0 ? validatedRowsToUpdate[ validatedRowsToUpdate.length - 1 ].oldValues[ fieldNames.indexOf( 'id' ) ] : null;
+				} else {
+					lock.releaseLock();
+					logger( `UPDATE. Total affected rows: 0`, 'info' );
 				}
-				else {
-					throw new DbExceptionTimeout( 'timaout. Try again' );
-				}
+			} else {
+				throw new DbExceptionTimeout( 'timeout. Try again' );
 			}
-			catch ( error ) {
-				lock.releaseLock();
-				throw new DbExceptionInternalError( error.message, error );
-			}
-		}
-		else {
-			logger( `UPDATE. Total affected rows: 0`, 'info' );
+		} catch ( error ) {
+			lock.releaseLock();
+			throw new DbExceptionInternalError( error.message, error );
 		}
 	}
 
@@ -1172,7 +1191,7 @@ class Dbm {
 
 		const timestampOperation = new Date();
 
-		if ( !this.spreadsheetId || !this.sheetNameOrIndex ) {
+		if ( !this.spreadsheetId || this.sheetNameOrIndex === undefined || this.sheetNameOrIndex === null ) {
 			throw new DbExceptionMissingOrWrongParams( "Spreadsheet ID or sheet name not provided" );
 		}
 		if ( !this.whereFilters || this.whereFilters.length === 0 ) {
@@ -1185,32 +1204,38 @@ class Dbm {
 			return this.update( { deleted_at: Parser.prepareForStoring( timestampOperation ) } );
 		}
 
-		const { fields: fieldNames, data } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex );
-		const normalizedFilterFields = this.whereFilters.map( filterGroup => Dbm.validateFilters( filterGroup, fieldNames ) );
+		// Obtain lock BEFORE reading data to avoid race conditions
+		var lock = LockService.getScriptLock();
+		try {
+			if ( lock.tryLock( 30000 ) ) {
+				
+				// Read data AFTER obtaining the lock
+				const { fields: fieldNames, data } = this.fetchData( this.spreadsheetId, this.sheetNameOrIndex );
+				const normalizedFilterFields = this.whereFilters.map( filterGroup => Dbm.validateFilters( filterGroup, fieldNames ) );
 
-		const rowsToDelete = data.map( ( row, index ) => {
-			const matches = normalizedFilterFields.some( filterGroup => filterGroup.every( filter => {
-				if ( filter instanceof OrClause ) return filter.evaluate( row, fieldNames ); // orClause has its own evaluation method
-				const [ fieldName, comparisonOperator, filterValue ] = filter;
-				const fieldIndex = fieldNames.indexOf( fieldName );
+				// Identify rows to delete with their data for validation
+				const rowsToDeleteWithData = data.map( ( row, index ) => {
+					const matches = normalizedFilterFields.some( filterGroup => filterGroup.every( filter => {
+						if ( filter instanceof OrClause ) return filter.evaluate( row, fieldNames );
+						const [ fieldName, comparisonOperator, filterValue ] = filter;
+						const fieldIndex = fieldNames.indexOf( fieldName );
 
-				if ( fieldIndex === -1 ) {
-					throw new DbExceptionMissingOrWrongParams( `Field name is wrong: ${ fieldName }` );
-				}
+						if ( fieldIndex === -1 ) {
+							throw new DbExceptionMissingOrWrongParams( `Field name is wrong: ${ fieldName }` );
+						}
 
-				const cellValue = row[ fieldIndex ];
-				return Dbm.evaluateFieldsOperation( cellValue, comparisonOperator, filterValue );
-			} ) );
+						const cellValue = row[ fieldIndex ];
+						return Dbm.evaluateFieldsOperation( cellValue, comparisonOperator, filterValue );
+					} ) );
 
-			return matches ? index + 2 : null; // +2 adjusts for array index and header
-		} ).filter( index => index !== null );
+					return matches ? { 
+						index: index + 2, // +2 adjusts for array index and header
+						data: row,
+						hash: Dbm.calculateRowHash( fieldNames, row )
+					} : null;
+				} ).filter( row => row !== null );
 
-		if ( rowsToDelete.length > 0 ) {
-
-			var lock = LockService.getScriptLock();
-			try {
-				if ( lock.tryLock( 30000 ) ) {
-
+				if ( rowsToDeleteWithData.length > 0 ) {
 					const spreadsheet = SpreadsheetApp.openById( this.spreadsheetId );
 					const sheet = ObjectHelper.getType( this.sheetNameOrIndex ) === 'number' ?
 						spreadsheet.getSheets()[ this.sheetNameOrIndex ] : spreadsheet.getSheetByName( this.sheetNameOrIndex );
@@ -1219,27 +1244,52 @@ class Dbm {
 						throw new DbExceptionNotFound( `The sheet ${ this.sheetNameOrIndex } was not found in spreadsheet with ID ${ this.spreadsheetId }` );
 					}
 
-					// Start from the end to avoid index shifting issues
-					rowsToDelete.reverse().forEach( rowIndex => {
+					// Validate each row before deleting it
+					const validatedRowsToDelete = [];
+					
+					for ( const rowInfo of rowsToDeleteWithData ) {
+						try {
+							// Get the current row of the sheet
+							const currentRowData = sheet.getRange( rowInfo.index, 1, 1, fieldNames.length ).getDisplayValues()[ 0 ];
+							
+							// Verify that the row still exists and matches our criteria
+							const currentRowHash = Dbm.calculateRowHash( fieldNames, currentRowData );
+							
+							// Validate that the current row matches the one we identified originally
+							if ( currentRowHash === rowInfo.hash ) {
+								validatedRowsToDelete.push( rowInfo.index );
+							} else {
+								logger( `Row ${ rowInfo.index } has changed since identification, skipping deletion`, 'warning' );
+							}
+						} catch ( error ) {
+							// The row no longer exists or is inaccessible
+							logger( `Row ${ rowInfo.index } no longer exists or is inaccessible, skipping deletion`, 'warning' );
+						}
+					}
+
+					// Delete only the validated rows, from the end to avoid index problems
+					validatedRowsToDelete.reverse().forEach( rowIndex => {
 						sheet.deleteRow( rowIndex );
 						affectedRows++;
 					} );
 
 					// reset filters in Dbm instance
 					this.resetQueryModifiers();
+					SpreadsheetApp.flush();
+					lock.releaseLock();
 
 					logger( `DELETE. Total affected rows: ${ affectedRows }`, 'info' );
-					const lastDeletedId = rowsToDelete[ rowsToDelete.length - 1 ].id;
-					return lastDeletedId;
+					return affectedRows > 0 ? validatedRowsToDelete[ validatedRowsToDelete.length - 1 ] : null;
+				} else {
+					lock.releaseLock();
+					logger( `DELETE. Total affected rows: 0`, 'info' );
 				}
+			} else {
+				throw new DbExceptionTimeout( 'timeout. Try again' );
 			}
-			catch ( error ) {
-				lock.releaseLock();
-				throw new DbExceptionInternalError( error.message, error )
-			}
-		}
-		else {
-			logger( `DELETE. Total affected rows: 0`, 'info' );
+		} catch ( error ) {
+			lock.releaseLock();
+			throw new DbExceptionInternalError( error.message, error )
 		}
 	}
 }
