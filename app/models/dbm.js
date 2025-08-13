@@ -1077,7 +1077,7 @@ class Dbm {
 						this.whereFilters.push( [ [ 'id', '=', newData[ tablePrefix + '.id' ] ] ] );
 					}
 					else {
-						this.whereFilters[ 0 ] = [ 'id', '=', newData[ tablePrefix + '.id' ] ]; // if an object with ID is defined, the first filter is updated to match the record with that ID
+						this.whereFilters[ 0 ] = [ [ 'id', '=', newData[ tablePrefix + '.id' ] ] ]; // if an object with ID is defined, the first filter is updated to match the record with that ID
 					}
 				}
 
