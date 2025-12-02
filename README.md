@@ -134,6 +134,8 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value'
 |-------------|-------------------------------------|----------------|-------------------|
 | paginate(resultsPerPage, pageNumber) | Returns an object with generic data to recreate a pagination of results.<br>- resultsPerPage (int): max items per page,<br>- pageNumber (int): page number to retrieve | Object: { currentPage: int, resultsPerPage: int, totalResults: int, totalPages: int, headers: string[], data: object[] } | No |
 | first() | Returns the first record after applying filters and ordering | array \| null | No |
+| min(field) | Returns the record with the minimum value in the field, after applying filters and ordering | array \| null | No |
+| max(field) | Returns the record with the maximum value in the field, after applying filters and ordering | array \| null | No |
 | firstOrFail() |  Returns the first record after applying filters and ordering or throw an exception if there isn't one | array | Yes. If is there no records in results |
 | getAllAsObject() | Returns all the records parsed as objects, where keys are table fields names, and values are the record values  | Object[] | No |
 | transform() | Applies a transformation function to each record in the data set and stores the result  | Paginator instance | Yes. If the callback isn't a function |

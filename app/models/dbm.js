@@ -838,6 +838,96 @@ class Dbm {
 	}
 
 	/**
+	 * Get the row with the minimum value of a field.
+	 * @param {String} field Field name to get min value of
+	 * @returns {Object|null} The row object with the minimum value, or null if none
+	 * @throws {DbExceptionFieldUnexpectedDataType} if a value in the column is not a valid number
+	 */
+	min(field) {
+		this.select();
+		if (this.resultTable.data.length === 0) return null;
+
+		if (typeof field !== 'string') {
+			throw new DbExceptionMissingOrWrongParams(`Field name must be a string`);
+		}
+
+		const idx = this.resultTable.fields.map(field => field.split('.')[1]).indexOf(field);
+		if (idx === -1) {
+			throw new DbExceptionTableUnexpedtedStructure(`Field '${field}' not found`);
+		}
+
+		let minRow = null;
+		let minValue = null;
+
+		for (let i = 0; i < this.resultTable.data.length; i++) {
+			const row = this.resultTable.data[i];
+			const currValue = row[idx];
+			if (currValue === undefined || currValue === null) continue;
+
+			const currFloat = parseFloat(currValue);
+			if (isNaN(currFloat)) {
+				throw new DbExceptionFieldUnexpectedDataType(`Value '${currValue}' in field '${field}' is not a number`);
+			}
+
+			if (minValue === null) {
+				minValue = currFloat;
+				minRow = row;
+			} else if (currFloat < minValue) {
+				minValue = currFloat;
+				minRow = row;
+			}
+		}
+
+		if (minRow === null) return null;
+		return this._rowArrayToObject(minRow);
+	}
+
+	/**
+	 * Get the row with the maximum value of a field.
+	 * @param {String} field Field name to get max value of
+	 * @returns {Object|null} The row object with the maximum value, or null if none
+	 * @throws {DbExceptionFieldUnexpectedDataType} if a value in the column is not a valid number
+	 */
+	max(field) {
+		this.select();
+		if (this.resultTable.data.length === 0) return null;
+
+		if (typeof field !== 'string') {
+			throw new DbExceptionMissingOrWrongParams(`Field name must be a string`);
+		}
+		
+		const idx = this.resultTable.fields.map(field => field.split('.')[1]).indexOf(field);
+		if (idx === -1) {
+			throw new DbExceptionTableUnexpedtedStructure(`Field '${field}' not found`);
+		}
+
+		let maxRow = null;
+		let maxValue = null;
+
+		for (let i = 0; i < this.resultTable.data.length; i++) {
+			const row = this.resultTable.data[i];
+			const currValue = row[idx];
+			if (currValue === undefined || currValue === null) continue;
+
+			const currFloat = parseFloat(currValue);
+			if (isNaN(currFloat)) {
+				throw new DbExceptionFieldUnexpectedDataType(`Value '${currValue}' in field '${field}' is not a number`);
+			}
+
+			if (maxValue === null) {
+				maxValue = currFloat;
+				maxRow = row;
+			} else if (currFloat > maxValue) {
+				maxValue = currFloat;
+				maxRow = row;
+			}
+		}
+
+		if (maxRow === null) return null;
+		return this._rowArrayToObject(maxRow);
+	}
+
+	/**
 	 * @param {[String | String[]]} fields fields to retrieve
 	 * @returns {Object | null} get the last item or null
 	 */

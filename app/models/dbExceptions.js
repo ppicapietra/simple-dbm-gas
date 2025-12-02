@@ -13,6 +13,13 @@ class DbExceptionMissingOrWrongParams extends DbException {
   }
 }
 
+// DB Table column has wrong type of data for operation
+class DbExceptionFieldUnexpectedDataType extends DbException {
+  constructor( message, context ) {
+    super( 500, message || 'Field has unexpected data type for operation', context );
+  }
+}
+
 // DB Table wrong structure
 class DbExceptionTableUnexpedtedStructure extends DbException {
   constructor( message, context ) {
