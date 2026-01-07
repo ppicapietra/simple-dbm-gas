@@ -3,6 +3,12 @@
 This project is versioning following the rules on  [Semantic Versioning](http://semver.org/).
 
 <!-- ## WIP -->
+## 1.1.3 - 2026-01-06
+
+### Fixed
+
+- min function avoid empty cells in evaluations
+
 ## 1.1.2 - 2025-01-21
 
 ### Fixed

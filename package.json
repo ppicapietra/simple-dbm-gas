@@ -1,7 +1,7 @@
 {
-  "name": "ppica-simple-router",
+  "name": "ppica-simple-dbm",
   "version": "1.0.0",
-  "description": "",
+  "description": "SimpleDBM is a database management library for Google Apps Script, which simplifies CRUD operations on Google Sheets spreadsheets",
   "main": "code.js",
   "scripts": {
     "deploy": "clasp push && clasp version \"prod\""
