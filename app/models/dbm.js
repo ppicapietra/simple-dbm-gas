@@ -862,7 +862,7 @@ class Dbm {
 		for (let i = 0; i < this.resultTable.data.length; i++) {
 			const row = this.resultTable.data[i];
 			const currValue = row[idx];
-			if (currValue === undefined || currValue === null) continue;
+			if (currValue === undefined || currValue === null || currValue === '') continue;
 
 			const currFloat = parseFloat(currValue);
 			if (isNaN(currFloat)) {
