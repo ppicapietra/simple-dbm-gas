@@ -804,11 +804,7 @@ class Dbm {
 		this.select( fields );
 		if ( this.resultTable.data.length !== 0 ) {
 			let row = this.resultTable.data[ 0 ];
-			let parsedData = {};
-			for ( let fieldIndex = 0; fieldIndex < row.length; fieldIndex++ ) {
-				parsedData[ this.resultTable.fields[ fieldIndex ] ] = Parser.parse( row[ fieldIndex ] );
-			}
-			return parsedData;
+			return this._rowArrayToObject( row );
 		} else {
 			throw new Error( "There is no record to return" );
 		}
