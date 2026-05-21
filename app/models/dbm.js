@@ -54,6 +54,37 @@ class Dbm {
 		return { fields: joinedTableFields, data };
 	}
 
+	/**
+	 * 
+	 * @param {Object} mainTable 
+	 * @param {Object} joinTable 
+	 * @param {string[][]} joinCriterias 
+	 * @returns 
+	 */
+	static performLeftJoin( mainTable, joinTable, joinCriterias ) {
+		let joinedDataSet = [];
+
+		const normalizedCriterias = Dbm.validateJoinCriteria( mainTable.fields, joinTable.fields, joinCriterias );
+		const emptyJoinRow = joinTable.fields.map( () => null );
+
+		mainTable.data.forEach( mainRow => {
+			let hasMatch = false;
+			joinTable.data.forEach( joinRow => {
+				if ( Dbm.isRowMatch( mainTable.fields, mainRow, joinTable.fields, joinRow, normalizedCriterias ) ) {
+					hasMatch = true;
+					joinedDataSet.push( [ ...mainRow, ...joinRow ] );
+				}
+			} );
+			if ( !hasMatch ) {
+				joinedDataSet.push( [ ...mainRow, ...emptyJoinRow ] );
+			}
+		} );
+
+		const joinedTableFields = [].concat( mainTable.fields, joinTable.fields );
+
+		return { fields: joinedTableFields, data: joinedDataSet };
+	}
+
 	static isRowMatch( mainFields, mainRow, joinFields, joinRow, joinCriterias ) {
 		return joinCriterias.every( joinCriteria => {
 			const [ mainFieldName, comparisonOperator, joinFieldName ] = joinCriteria;
@@ -121,6 +152,33 @@ class Dbm {
 		} ).join( '' );
 
 		return hashHex;
+	}
+
+	static normalizeJoinCriteriasArgument( criterias ) {
+		if ( ObjectHelper.getType( criterias ) === "array" ) {
+			if ( criterias[ 0 ] && ObjectHelper.getType( criterias[ 0 ] ) === 'string' ) {
+				criterias = [ criterias ];
+			}
+			else if ( ObjectHelper.getType( criterias[ 0 ] ) !== 'array' ) {
+				throw new DbExceptionMissingOrWrongParams( `Invalid join criteria argument: ${ JSON.stringify( criterias[ 0 ] ) }` );
+			}
+		}
+		else {
+			throw new DbExceptionMissingOrWrongParams( `Invalid join criteria argument: ${ JSON.stringify( criterias ) }` );
+		}
+
+		return criterias.map( criteria => {
+			if ( 2 > criteria.length || criteria.length > 3 ) {
+				throw new DbExceptionMissingOrWrongParams( `Invalid join criteria number of arguments: ${ JSON.stringify( criteria ) }` );
+			}
+			const longForm = criteria.length === 3;
+			if ( longForm ) {
+				const [ leftColumnName, comparisonOperator, rightColumnName ] = criteria;
+				return [ leftColumnName, comparisonOperator, rightColumnName ];
+			}
+			const [ leftColumnName, rightColumnName ] = criteria;
+			return [ leftColumnName, "=", rightColumnName ];
+		} );
 	}
 
 	static validateJoinCriteria( leftTableFieldNames, rightTableFieldNames, criterias ) {
@@ -467,6 +525,7 @@ class Dbm {
 		this.orders = [];
 		this.defaults = {};
 		this.includeDeleted = false;
+		this.joinsConfig = [];
 	}
 
 	_addNewFilterToGroup( filter ) {
@@ -706,8 +765,23 @@ class Dbm {
 		return tableFields.map( fieldName => obj[ fieldName ] );
 	}
 
+	_addJoinConfig( spreadsheetId, sheetNameOrIndex, criterias, as, type ) {
+		if ( !this.joinsConfig ) {
+			this.joinsConfig = [];
+		}
+		this.joinsConfig.push( {
+			spreadsheetId,
+			sheetNameOrIndex,
+			criterias: Dbm.normalizeJoinCriteriasArgument( criterias ),
+			as,
+			type
+		} );
+		return this;
+	}
+
 	/**
-	 * Adds a join configuration to combine data from another spreadsheet.
+	 * Adds an inner join configuration to combine data from another spreadsheet.
+	 * Only rows with a match in the joined sheet are included in the result.
 	 * 
 	 * @param {string} spreadsheetId - ID of the spreadsheet to join.
 	 * @param {string|number} sheetNameOrIndex - Name or index of the sheet in the spreadsheet to join.
@@ -716,38 +790,21 @@ class Dbm {
 	 * @returns {Dbm} The Dbm instance to allow method chaining.
 	 */
 	join( spreadsheetId, sheetNameOrIndex, criterias, as = null ) {
-		if ( !this.joinsConfig ) {
-			this.joinsConfig = [];
-		}
-		// normalize criteria
-		if ( ObjectHelper.getType( criterias ) === "array" ) { // it would be the correct value here
-			if ( criterias[ 0 ] && ObjectHelper.getType( criterias[ 0 ] ) === 'string' ) { // Case 2: Array of strings
-				criterias = [ criterias ];
-			}
-			else if ( ObjectHelper.getType( criterias[ 0 ] ) !== 'array' ) {
-				throw new DbExceptionMissingOrWrongParams( `Invalid join criteria argument: ${ JSON.stringify( criterias[ 0 ] ) }` );
-			}
-		}
-		else {
-			throw new DbExceptionMissingOrWrongParams( `Invalid join criteria argument: ${ JSON.stringify( criterias ) }` );
-		}
+		return this._addJoinConfig( spreadsheetId, sheetNameOrIndex, criterias, as, 'inner' );
+	}
 
-		criterias = criterias.map( criteria => {
-			if ( 2 > criteria.length || criteria.length > 3 ) {
-				throw new DbExceptionMissingOrWrongParams( `Invalid join criteria number of arguments: ${ JSON.stringify( criteria ) }` );
-			}
-			const longForm = criteria.length === 3;
-			if ( longForm ) {
-				const [ leftColumnName, comparisonOperator, rightColumnName ] = criteria;
-				return [ leftColumnName, comparisonOperator, rightColumnName ];
-			} else {
-				const [ leftColumnName, rightColumnName ] = criteria;
-				return [ leftColumnName, "=", rightColumnName ];
-			}
-		} );
-
-		this.joinsConfig.push( { spreadsheetId, sheetNameOrIndex, criterias, as } );
-		return this; // Allows chaining
+	/**
+	 * Adds a left join configuration to combine data from another spreadsheet.
+	 * All rows from the main table are kept; unmatched joined columns are null.
+	 * 
+	 * @param {string} spreadsheetId - ID of the spreadsheet to join.
+	 * @param {string|number} sheetNameOrIndex - Name or index of the sheet in the spreadsheet to join.
+	 * @param {Array} criterias - Array of criteria for performing the join. Each criterion is an array that can contain two or three elements: the field name from the main table, optional comparison operator (default '='), and the field name from the table to join.
+	 * @param {string|null} [as=null] - Optional alias to be used as a prefix for field names from the joined spreadsheet.
+	 * @returns {Dbm} The Dbm instance to allow method chaining.
+	 */
+	leftJoin( spreadsheetId, sheetNameOrIndex, criterias, as = null ) {
+		return this._addJoinConfig( spreadsheetId, sheetNameOrIndex, criterias, as, 'left' );
 	}
 
 	//#region Query Methods
@@ -767,7 +824,9 @@ class Dbm {
 				// Fetch joined data
 				const joinTable = this.fetchData( joinConfig.spreadsheetId, joinConfig.sheetNameOrIndex, false, joinConfig.as );
 				// Perform the join operation
-				const joinedTable = Dbm.performJoin( mainTable, joinTable, joinConfig.criterias );
+				const joinedTable = joinConfig.type === 'left'
+					? Dbm.performLeftJoin( mainTable, joinTable, joinConfig.criterias )
+					: Dbm.performJoin( mainTable, joinTable, joinConfig.criterias );
 				// Merge fields and data
 				mainTable.fields = joinedTable.fields;
 				mainTable.data = joinedTable.data;

@@ -2,7 +2,16 @@
 
 This project is versioning following the rules on  [Semantic Versioning](http://semver.org/).
 
-<!-- ## WIP -->
+## WIP
+
+### Added
+
+- `leftJoin` method and `performLeftJoin` static function for left join semantics (main rows without match keep joined columns as null)
+
+### Fixed
+
+- `resetQueryModifiers` now clears `joinsConfig` so joins do not persist across subsequent queries on the same instance
+
 ## 1.1.3 - 2026-01-06
 
 ### Fixed

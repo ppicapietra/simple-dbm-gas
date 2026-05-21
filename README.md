@@ -39,7 +39,7 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').whereNotIn('fieldName', ['
 
 
 /**o filtering results */
-const filterFunction = (cellValue, desiredResult) => {/** do some magic and return true/false */} 
+const filterFunction = (cellValue) => {/** do some magic and return true/false */} 
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', filterFunction, 'value').select(["fieldName", "fieldName2"]).get();
 
 /**o ordering results */
@@ -57,12 +57,16 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').unique('col-name', ['col2-
 #### With Join
 
 ```javascript
+// inner join: only rows with a match in the joined sheet
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "=", "id_post"], 'tableAlias').select();
 
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', '=', 'value').join('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select(); // equal criteria in join filter is the default behaviour
 
 // several criteria conditions to the join
 dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').join('another-spreadsheet-id', 'another-sheet-name', [[ "id", "id_post" ], [ "author_id", "author_id" ]], 'tableAlias').select();
+
+// left join: all main rows are kept; joined columns are null when there is no match
+dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').leftJoin('another-spreadsheet-id', 'another-sheet-name', [ "id", "id_post" ], 'tableAlias').select();
 ```
 
 #### Insert
@@ -98,7 +102,8 @@ dbm.spreadsheet('spreadsheet-id').sheet('sheet-name').where('fieldName', 'value'
 | source(spreadsheetId, sheetNameOrIndex, [as]) | Set the base source table for operations.<br>- spreadsheetId (string): spreadsheet ID.<br>- sheetNameOrIndex (string \| int): sheet name or zero-indexed index of sheet in spreadsheet.<br>- as: Optional. Alias for the table used in field names in results. If isn't passed, original sheet name is used in his place | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
 | delete(hardDelete) | Deletes data from the spreadsheet based on filters.<br>- hardDelete(bool): Optional. Whether to delete the registry or just mark it as deleted | SimpleDBM instance for chaining. | Yes, if filters or the sheet name are not provided. |
 | insert(data) | Inserts data into the spreadsheet. <br> - data (array \| object): Data to be inserted. Required. | SimpleDBM instance for chaining. | Yes, if the data type is invalid. |
-| join(spreadsheetId, sheetNameOrIndex, criterias, [as]) | Performs join operations with another sheet. <br> - spreadsheetId (string): Spreadsheet ID to join. Required. <br> - sheetNameOrIndex (string \| number): Name or index of the sheet to join. Required. <br> - criterias (array): Criteria for joining. Required. <br> - as (string): Optional alias for joined data. Default: null. | SimpleDBM instance for chaining. | Yes, if join criteria are invalid or ambiguous. |
+| join(spreadsheetId, sheetNameOrIndex, criterias, [as]) | Performs an inner join with another sheet (only matching rows). <br> - spreadsheetId (string): Spreadsheet ID to join. Required. <br> - sheetNameOrIndex (string \| number): Name or index of the sheet to join. Required. <br> - criterias (array): Criteria for joining. Required. <br> - as (string): Optional alias for joined data. Default: null. | SimpleDBM instance for chaining. | Yes, if join criteria are invalid or ambiguous. |
+| leftJoin(spreadsheetId, sheetNameOrIndex, criterias, [as]) | Performs a left join with another sheet (all main rows kept; unmatched joined columns are null). Same parameters as join. | SimpleDBM instance for chaining. | Yes, if join criteria are invalid or ambiguous. |
 | orderBy(fieldName, [orderType]) | Adds order clause to the results.<br>- fieldName (string): Field name or column to use in ordering. When joins operations are performed, fieldName has to be prefixed with table name with dot notation. Required. <br>- orderType (string): if it is asc or desc. Default: desc | None | Yes, if fieldName is missing. |
 | select([fields]) | Selects data from the spreadsheet. <br> - fields (string \| array): Fields to select, "*" for all. Default: "*". | Array of string values | No |
 | sheet(sheetNameOrIndex, [as]) | Sets the spreadsheet and an optional prefix for subsequent operations. <br> - sheetNameOrIndex (string \| number): Name or index of the sheet. Required. <br> - as (string): Optional prefix for field names. Default: null. | SimpleDBM instance for chaining. | Yes, if the spreadsheet is not found. |
